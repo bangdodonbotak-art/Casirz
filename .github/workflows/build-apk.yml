@@ -75,8 +75,10 @@ jobs:
       run:
         working-directory: flutter
     needs: build-debug-apk
-    # Skip (bukan gagal) bila secrets keystore belum diisi.
-    if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.KEYSTORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
+    # CATATAN: `secrets` TIDAK BOLEH dipakai di `if` level job (GitHub
+    # menolak seluruh file workflow). Karena itu job ini selalu jalan,
+    # tapi step-step keystore di bawah di-skip bila secrets kosong
+    # (job tetap sukses, tanpa artefak AAB).
     env:
       KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -102,6 +104,7 @@ jobs:
         run: flutter pub get
 
       - name: Siapkan keystore dari secrets
+        if: ${{ env.KEYSTORE_BASE64 != '' && env.KEYSTORE_PASSWORD != '' && env.KEY_ALIAS != '' && env.KEY_PASSWORD != '' }}
         run: |
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
           cat > android/app/keystore.properties << 'EOF'
@@ -112,9 +115,11 @@ jobs:
           EOF
 
       - name: flutter build appbundle --release
+        if: ${{ env.KEYSTORE_BASE64 != '' && env.KEYSTORE_PASSWORD != '' && env.KEY_ALIAS != '' && env.KEY_PASSWORD != '' }}
         run: flutter build appbundle --release
 
       - name: Upload AAB release
+        if: ${{ env.KEYSTORE_BASE64 != '' && env.KEYSTORE_PASSWORD != '' && env.KEY_ALIAS != '' && env.KEY_PASSWORD != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: casirz-release-aab
