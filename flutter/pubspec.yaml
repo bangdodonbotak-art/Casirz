@@ -103,3 +103,21 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Font dibundel sebagai file (OFL) — TANPA paket google_fonts
+  # (BLUEPRINT-FLUTTER.md §8.4). Keduanya variable font: satu file
+  # melayani semua weight; Flutter menginterpolasi wght dari
+  # FontWeight yang diminta. Fraunces hanya untuk judul toko
+  # (momen brand) — lihat AppTheme.displayFont.
+  fonts:
+    - family: Space Grotesk
+      fonts:
+        - asset: 'assets/fonts/SpaceGrotesk[wght].ttf'
+    - family: Fraunces
+      fonts:
+        - asset: 'assets/fonts/Fraunces[SOFT,WONK,opsz,wght].ttf'
+
+  # Foto menu (digenerate, 1600x1600 webp) — dipetakan nama produk
+  # ke path di lib/features/pos/product_photos.dart.
+  assets:
+    - assets/menu/

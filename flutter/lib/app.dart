@@ -1,6 +1,8 @@
 // Casirz ERP — Fase 2.
 // Wiring aplikasi: SATU ProviderScope (DB di-override di sini) + tema
-// + AppShell. Font sistem (tanpa font Google). Bahasa UI Indonesia.
+// + AppShell. Font Space Grotesk + Fraunces dibundel sebagai aset
+// (tanpa paket google_fonts — BLUEPRINT-FLUTTER.md §8.4).
+// Bahasa UI Indonesia.
 //
 // Struktur: CasirzApp (StatefulWidget biasa) -> ProviderScope ->
 // _CasirzAppInner (Consumer — baca themeModeProvider). Satu scope saja,
@@ -92,6 +94,7 @@ class _CasirzAppInnerState extends ConsumerState<_CasirzAppInner> {
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: 'Casirz ERP',
+      debugShowCheckedModeBanner: false, // Rework premium: tanpa pita DEBUG.
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,

@@ -541,13 +541,15 @@ void main() {
       );
     });
 
-    testWidgets("badge 'Sync belum aktif' tampil bila config kosong",
+    testWidgets("badge 'Offline' tampil bila config kosong",
         (tester) async {
       final db = AppDatabase.memory();
       await tester.pumpWidget(CasirzApp(db: db));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('Sync belum aktif'), findsOneWidget);
+      // Rework premium netral (15 Nov 2026): pill "Sync belum aktif"
+      // diganti chip ringkas "Offline".
+      expect(find.text('Offline'), findsOneWidget);
       await db.close();
     });
   });

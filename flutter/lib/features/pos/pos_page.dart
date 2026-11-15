@@ -4,13 +4,16 @@
 //
 // - Stok minus TIDAK memblokir jualan (keputusan Dony): hanya badge
 //   merah "Stok Minus" di kartu menu.
-// - HPP estimasi tampil di kartu (Bom.computeHPP — BUKAN angka final).
+// - Rework premium netral (15 Nov 2026): kartu menu berfoto, TANPA
+//   baris HPP dan "Stok: N pcs" — HPP estimasi hanya di bottom sheet
+//   detail (Bom.computeHPP — BUKAN angka final).
 // - Touch target >= 44px; angka uang tabularFigures (MoneyText).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/db.dart';
 import '../../core/money.dart';
+import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/common.dart';
 import '../../shared/widgets/money_text.dart';
 import '../../shared/widgets/stock_qty_text.dart';
@@ -19,6 +22,7 @@ import '../staff/staff_providers.dart';
 import 'cart.dart';
 import 'checkout.dart';
 import 'pos_providers.dart';
+import 'product_photos.dart';
 import 'shift.dart';
 
 const List<String> ojolPlatforms = ['GoFood', 'GrabFood', 'ShopeeFood'];
@@ -114,7 +118,12 @@ class _PosPageState extends ConsumerState<PosPage> {
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: isWide ? 3 : 2,
-                              childAspectRatio: 1.35,
+                              // Premium netral: sel lebih tinggi dari lebar
+                              // supaya foto 100dp + nama 2 baris + harga
+                              // muat tanpa overflow (layout lama 1.35
+                              // = tinggi ~121dp < isi ~140dp -> pita kuning
+                              // "BOTTOM OVERFLOWED" di HP Dony).
+                              childAspectRatio: 0.82,
                               crossAxisSpacing: 10,
                               mainAxisSpacing: 10,
                             ),
@@ -172,6 +181,7 @@ class _PosPageState extends ConsumerState<PosPage> {
         children: [
           // Channel.
           SegmentedButton<String>(
+            showSelectedIcon: false, // ceklis di mode bukan di filter
             segments: const [
               ButtonSegment(value: 'dine-in', label: Text('Dine-in')),
               ButtonSegment(value: 'takeaway', label: Text('Takeaway')),
@@ -224,22 +234,25 @@ class _PosPageState extends ConsumerState<PosPage> {
               final opened = DateTime.fromMillisecondsSinceEpoch(
                 shift.openedAt,
               );
-              return ActionChip(
-                avatar: const Icon(Icons.store, size: 18),
-                label: Text(
-                  'Shift ${opened.hour.toString().padLeft(2, '0')}:'
-                  '${opened.minute.toString().padLeft(2, '0')} • '
-                  'Float ${fmt(shift.openingFloat)}',
+              return SizedBox(
+                height: 44,
+                child: ActionChip(
+                  avatar: const Icon(Icons.store, size: 18),
+                  label: Text(
+                    'Shift ${opened.hour.toString().padLeft(2, '0')}:'
+                    '${opened.minute.toString().padLeft(2, '0')} • '
+                    'Float ${fmt(shift.openingFloat)}',
+                  ),
+                  onPressed: () => _openShift(context),
                 ),
-                onPressed: () => _openShift(context),
               );
             },
             loading: () => const SizedBox.shrink(),
             error: (_, _) => const SizedBox.shrink(),
           ),
           // Kasir yang login (tampilan saja — bukan dropdown; penjualan
-          // dicatat atas sesi login, Fase 6).
-          const _CashierChip(),
+          // dicatat atas sesi login, Fase 6). Tinggi min 44dp.
+          const SizedBox(height: 44, child: _CashierChip()),
         ],
       ),
     );
@@ -276,74 +289,93 @@ class _CashierChip extends ConsumerWidget {
   }
 }
 
-/// Kartu menu: nama + harga + HPP estimasi + badge HERO / Stok Minus.
+/// Kartu menu premium netral (rework 15 Nov 2026): foto di atas +
+/// nama + harga. TANPA baris HPP dan "Stok: N pcs" (HPP tetap ada di
+/// bottom sheet detail — jangan hapus dari sana). Badge HERO /
+/// Stok Minus + chip "Stok menipis" menempel di atas foto, bukan di
+/// alur teks — supaya tinggi kartu tetap dan TIDAK overflow.
+/// TANPA Spacer() (sumber overflow lama: sel grid ~121dp < isi ~140dp).
 class _ProductCard extends ConsumerWidget {
   const _ProductCard({required this.product});
   final Product product;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hppAsync = ref.watch(hppProvider(product.id));
     final minusAsync = ref.watch(productStockMinusProvider(product.id));
     final heroAsync = ref.watch(heroProductIdsProvider);
     final isHero = heroAsync.value?.contains(product.id) ?? false;
     final isMinus = minusAsync.value ?? false;
+    final photo = productPhotoPath(product.name);
+    // Stok menipis hanya bila 0 < stok < 10 (tidak pernah bersamaan
+    // dengan Stok Minus).
+    final lowStock = !isMinus && product.stock > 0 && product.stock < 10;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _showProductOptions(context, ref),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Foto produk (100dp) + badge menempel di atasnya.
+            SizedBox(
+              height: 100,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  if (isHero) const HeroBadge(),
-                  if (isHero && isMinus) const SizedBox(width: 4),
-                  if (isMinus) const StokMinusBadge(),
-                  const Spacer(),
-                  Text(
-                    product.category,
-                    style: Theme.of(context).textTheme.bodySmall,
+                  photo != null
+                      ? Image.asset(
+                          photo,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              const _PhotoPlaceholder(),
+                        )
+                      : const _PhotoPlaceholder(),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    right: 8,
+                    child: Row(
+                      children: [
+                        if (isHero) const HeroBadge(),
+                        if (isHero && isMinus) const SizedBox(width: 4),
+                        if (isMinus) const StokMinusBadge(),
+                        if (lowStock) const _LowStockChip(),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                product.name,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          height: 1.25,
+                        ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  MoneyText(
+                    product.price,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: AppTheme.priceColor(context),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          height: 1.25,
+                        ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              MoneyText(
-                product.price,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFF059669),
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              hppAsync.when(
-                data: (hpp) => Text(
-                  'HPP ${fmt(hpp)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                loading: () => const Text(
-                  'HPP ...',
-                  style: TextStyle(fontSize: 12),
-                ),
-                error: (_, _) => const SizedBox.shrink(),
-              ),
-              if (!isMinus && product.stock > 0)
-                Text(
-                  'Stok: ${product.stock} pcs',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -491,6 +523,54 @@ class _ProductCard extends ConsumerWidget {
         SnackBar(content: Text('${product.name} masuk keranjang')),
       );
     }
+  }
+}
+
+/// Placeholder elegan untuk produk tanpa foto: blok ink muda +
+/// ikon cangkir. BUKAN gambar rusak — dipakai bila nama produk
+/// tidak ada di productPhotos (produk buatan user) atau aset
+/// fotonya gagal dimuat.
+class _PhotoPlaceholder extends StatelessWidget {
+  const _PhotoPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      color: dark ? const Color(0xFF2A2F2F) : const Color(0xFFE4E7E5),
+      child: Center(
+        child: Icon(
+          Icons.local_cafe_outlined,
+          size: 36,
+          color: dark ? Colors.white38 : const Color(0xFF8A9390),
+        ),
+      ),
+    );
+  }
+}
+
+/// Chip kecil amber "Stok menipis" — hanya bila 0 < stok < 10.
+/// Menempel di atas foto (bersama badge HERO / Stok Minus).
+class _LowStockChip extends StatelessWidget {
+  const _LowStockChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade700,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        'Stok menipis',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 }
 

@@ -18,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/session.dart';
 import '../../core/supabase_config.dart';
+import '../../shared/theme/app_theme.dart';
 import '../accounting/accounting_page.dart';
 import '../accounting/reports_page.dart';
 import '../dashboard/dashboard_page.dart';
@@ -132,7 +133,34 @@ class AppShell extends ConsumerWidget {
     final isWide = MediaQuery.of(context).size.width >= 900;
 
     final appBar = AppBar(
-      title: Text('$storeName — ${dests[index].label}'),
+      // Rework premium: nama toko serif Fraunces (momen brand) +
+      // judul max 1 baris + ellipsis — jangan kepotong tanpa elipsis.
+      // (Flexible tidak berlaku di dalam AppBar: AppBar sendiri sudah
+      // memberi ruang terbatas pada title; ellipsis + chip Offline
+      // yang ringkas memberi judul ruang lebih.)
+      title: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: storeName,
+              style: const TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w600,
+                // 18 (bukan 20): di lebar 360dp, "Warkop Kekinian"
+                // dalam Fraunces 20 tidak muat di samping chip Offline
+                // + tombol tema dan terpotong jadi "Warkop Keki…".
+                fontSize: 18,
+                fontVariations: [FontVariation('opsz', 18)],
+              ),
+            ),
+            // TANPA sufiks " — {halaman}": di lebar 360dp sufiks itu
+            // membuat nama toko terpotong ("Warkop Keki…"); halaman
+            // aktif sudah ditandai di bottom navigation.
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       actions: [
         const _SyncBadge(),
         if (session.employee != null) _UserChip(role: role),
@@ -393,8 +421,8 @@ class _UserChip extends ConsumerWidget {
 }
 
 /// Badge "N perubahan belum tersinkron" + jam sync terakhir.
-/// Bila Supabase belum dikonfigurasi (Fase 7, nonaktif): label jujur
-/// "Sync belum aktif" — bukan angka palsu, bukan error.
+/// Bila Supabase belum dikonfigurasi (Fase 7, nonaktif): chip ringkas
+/// "Offline" — bukan angka palsu, bukan error.
 class _SyncBadge extends ConsumerWidget {
   const _SyncBadge();
 
@@ -405,7 +433,7 @@ class _SyncBadge extends ConsumerWidget {
     return statusAsync.when(
       data: (status) {
         final label = !configured
-            ? 'Sync belum aktif'
+            ? 'Offline'
             : status.pendingCount > 0
                 ? '${status.pendingCount} belum tersinkron'
                 : 'Tersinkron';
@@ -423,7 +451,7 @@ class _SyncBadge extends ConsumerWidget {
                 !configured || status.pendingCount > 0
                     ? Icons.cloud_off
                     : Icons.cloud_done,
-                size: 18,
+                size: 16,
               ),
               label: Text(label),
             ),

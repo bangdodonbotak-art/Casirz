@@ -1,33 +1,53 @@
-// Casirz ERP — Fase 2 (Modul A Kasir+).
-// Tema aplikasi: satu aksen emerald-600 (#059669), font sistem
-// (tanpa font Google — BLUEPRINT-FLUTTER.md §8.4). Dark/light toggle
-// disimpan di settings key 'themeMode' ('light' | 'dark').
+// Casirz ERP — Rework premium netral (15 Nov 2026, arah disetujui Dony).
+// Token: scaffold light #F1F2F0, kartu PUTIH + bayangan halus, radius 16,
+// TANPA border outline. Teks ink #14181A. Harga emerald #059669 (light)
+// / #34D399 (dark, supaya kontras di kartu gelap). Font: Space Grotesk
+// (variable, dibundel) untuk semua UI; Fraunces (variable, dibundel)
+// HANYA untuk judul toko — momen brand. Ember #E85D1F dicadangkan untuk
+// momen brand lain (splash/header struk), BUKAN aksen UI umum.
+// Tanpa paket google_fonts (BLUEPRINT-FLUTTER.md §8.4) — font dibundel
+// sebagai file di assets/fonts/ dan didaftarkan di pubspec.yaml.
 import 'package:flutter/material.dart';
 
 class AppTheme {
   static const Color emerald = Color(0xFF059669); // emerald-600
+  static const Color emeraldBright = Color(0xFF34D399); // emerald-400 (dark)
+  static const Color ink = Color(0xFF14181A);
+  static const Color ember = Color(0xFFE85D1F); // momen brand saja
+
+  static const String fontFamily = 'Space Grotesk';
+  static const String displayFont = 'Fraunces';
+
+  /// Warna harga sesuai kecerahan tema (emerald gelap tidak kontras
+  /// di kartu gelap — pakai emerald terang di dark mode).
+  static Color priceColor(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? emeraldBright
+          : emerald;
 
   static ThemeData light() {
     final scheme = ColorScheme.fromSeed(
       seedColor: emerald,
       brightness: Brightness.light,
-    );
+    ).copyWith(onSurface: ink);
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xFFF6F7F6),
+      fontFamily: fontFamily,
+      scaffoldBackgroundColor: const Color(0xFFF1F2F0),
       appBarTheme: AppBarTheme(
         backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
+        foregroundColor: ink,
         elevation: 0,
         centerTitle: false,
       ),
       cardTheme: CardThemeData(
-        elevation: 0,
-        color: scheme.surface,
+        elevation: 2,
+        shadowColor: const Color(0x14000000), // hitam 8%
+        surfaceTintColor: Colors.transparent, // kartu tetap putih murni
+        color: Colors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: scheme.outlineVariant),
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -56,25 +76,33 @@ class AppTheme {
   }
 
   static ThemeData dark() {
+    const darkCard = Color(0xFF1E2222);
+    const darkText = Color(0xFFEFF2F1);
     final scheme = ColorScheme.fromSeed(
       seedColor: emerald,
       brightness: Brightness.dark,
+    ).copyWith(
+      surface: darkCard,
+      onSurface: darkText,
     );
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
+      fontFamily: fontFamily,
+      scaffoldBackgroundColor: const Color(0xFF101413),
       appBarTheme: AppBarTheme(
         backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
+        foregroundColor: darkText,
         elevation: 0,
         centerTitle: false,
       ),
       cardTheme: CardThemeData(
-        elevation: 0,
-        color: scheme.surface,
+        elevation: 2,
+        shadowColor: const Color(0x40000000),
+        surfaceTintColor: Colors.transparent,
+        color: darkCard,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: scheme.outlineVariant),
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -95,7 +123,7 @@ class AppTheme {
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        selectedItemColor: emerald,
+        selectedItemColor: emeraldBright,
         unselectedItemColor: Colors.grey.shade400,
         type: BottomNavigationBarType.fixed,
       ),
