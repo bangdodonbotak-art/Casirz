@@ -1,0 +1,121 @@
+# Casirz ERP — Fase 7.
+# CI build APK/AAB (GitHub Actions).
+# LAYOUT REPO: proyek Flutter ada di subfolder flutter/ repo Casirz
+# (web Next.js di root). Workflow ini jalan dengan working-directory
+# flutter dan hanya terpicu oleh perubahan di flutter/**.
+#
+# CATATAN JUJUR:
+# - `flutter build apk` TIDAK BISA jalan di VM (tidak ada JDK) — CI ini
+#   adalah SATU-SATUNYA jalur build APK/AAB. Build pertama yang
+#   sebenarnya baru terverifikasi setelah push + Actions jalan.
+# - Job release-aab HANYA jalan bila secrets keystore tersedia
+#   (KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD).
+#   Bila secrets kosong, job di-SKIP (bukan gagal) — keystore memang
+#   BELUM dibuat (keputusan Dony: NGGAK USAH dulu, nanti saat rilis).
+#   Jangan minta keystore ke Dony sebelum rilis.
+# - Versi aplikasi: pubspec `version: 0.1.0+1` (tetap — blueprint tidak
+#   meminta naik versi di Fase 7). CI memakai versi itu apa adanya.
+# - Trigger: push ke branch `main` + manual (workflow_dispatch).
+#   Sesuaikan `branches` bila repo memakai nama branch default lain.
+name: Build APK/AAB
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'flutter/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build-debug-apk:
+    name: Build APK debug
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17 (dibutuhkan build Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter 3.35.7
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: flutter analyze
+        run: flutter analyze
+
+      - name: flutter test
+        run: flutter test
+
+      - name: flutter build apk --debug
+        run: flutter build apk --debug
+
+      - name: Upload APK debug
+        uses: actions/upload-artifact@v4
+        with:
+          name: casirz-debug-apk
+          path: flutter/build/app/outputs/flutter-apk/app-debug.apk
+
+  build-release-aab:
+    name: Build AAB release (bila keystore tersedia)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter
+    needs: build-debug-apk
+    # Skip (bukan gagal) bila secrets keystore belum diisi.
+    if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.KEYSTORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17 (dibutuhkan build Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter 3.35.7
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Siapkan keystore dari secrets
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
+          cat > android/app/keystore.properties << 'EOF'
+          storeFile=keystore.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: flutter build appbundle --release
+        run: flutter build appbundle --release
+
+      - name: Upload AAB release
+        uses: actions/upload-artifact@v4
+        with:
+          name: casirz-release-aab
+          path: flutter/build/app/outputs/bundle/release/app-release.aab
