@@ -1,0 +1,105 @@
+# Casirz ERP — POS + Akuntansi F&B (Flutter)
+# Package id: com.casirz.app (keputusan Dony, BLUEPRINT-FLUTTER.md §0 no. 10)
+# Versi package dicek di pub.dev 15 Nov 2026 — lihat BLUEPRINT-FLUTTER.md §8.1.
+# CATATAN: versi terbaru beberapa package butuh Dart >=3.10/3.11/3.12 dan
+# TIDAK kompatibel dengan SDK ini (Flutter 3.35.7 / Dart 3.9.2). Yang dipakai
+# di bawah adalah versi terbaru yang kompatibel dengan Dart 3.9.2.
+# supabase_flutter ADA di sini tapi TIDAK diinisialisasi/diaktifkan
+# (BLUEPRINT-FLUTTER.md §5.4 — aktifasi Fase 7 setelah lokal stabil).
+name: casirz
+description: "Casirz ERP — POS + akuntansi F&B warkop, offline-first (Flutter)."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Database lokal = sumber kebenaran (Drift/SQLite).
+  drift: ^2.31.0
+  drift_flutter: ^0.2.8
+
+  # State management.
+  flutter_riverpod: ^2.6.1
+
+  # Chart Command Center.
+  fl_chart: ^1.3.1
+
+  # Format Rp + tanggal id_ID.
+  intl: ^0.20.3
+
+  # UUID v4 untuk semua id (dibuat di device — syarat sync).
+  uuid: ^4.6.0
+
+  # Hash PIN karyawan (SHA-256 + salt) — Fase 5.
+  # Versi 3.0.8 = yang sudah ter-resolve transitif; dijadikan direct dep
+  # supaya import package:crypto eksplisit. BUKAN upgrade.
+  crypto: ^3.0.8
+
+  # Lokasi file DB + backup.
+  path_provider: ^2.1.5
+
+  # Share struk / backup / CSV.
+  share_plus: ^12.0.2
+
+  # Pilih file export JSON saat migrasi + file backup saat restore.
+  file_picker: ^11.0.3
+
+  # Export laporan ke CSV.
+  csv: ^6.0.0
+
+  # Print PDF laporan.
+  printing: ^5.14.3
+
+  # PDF laporan (Fase 4). Versi 3.12.0 = yang sudah ter-resolve transitif
+  # via `printing` — dijadikan direct dep supaya laporan bisa import
+  # package:pdf langsung; BUKAN upgrade.
+  pdf: ^3.12.0
+
+  # Printer thermal ESC/POS (USB/BT/BLE/network).
+  # HANYA dipakai di lib/core/printer/esc_pos_printer.dart — UI dilarang
+  # import package ini langsung (BLUEPRINT-FLUTTER.md §5.5).
+  unified_esc_pos_printer: ^3.4.0
+
+  # Target sync Fase 7 — DITAMBAH sebagai dependency, TIDAK diinisialisasi.
+  # Tidak ada Supabase.initialize() di mana pun sebelum Fase 7.
+  supabase_flutter: ^2.18.3
+
+# PERBAIKAN KOMPILASI (Fase 2, 15 Nov 2026 — BUKAN upgrade sembarangan):
+# `printing` -> `pdf 3.12.0` mengunci `archive <4.1.0` (ter-resolve 4.0.9),
+# sementara `unified_esc_pos_printer` -> `image ^4.8.0` ter-resolve ke
+# image 4.11.0 yang memanggil `ZLibDecoder().decodeLazy(...)` — metode
+# yang BARU ADA di archive 4.1.0. Akibatnya aplikasi TIDAK BISA
+# di-compile sama sekali begitu printer di-import (bukan salah kode
+# Fase 2 — konflik upstream yang tadinya laten karena belum ada yang
+# meng-import printer). Solusi minimal: pin `image` ke 4.10.2
+# (versi terakhir tanpa decodeLazy, SDK ^3.0.0, cocok Dart 3.9.2).
+# JANGAN naikkan pin ini tanpa cek `flutter test` + `flutter analyze`.
+# Perbaikan permanen: saat SDK naik (Dart >=3.10), naikkan `printing`
+# agar `pdf` melepas kunci archive <4.1.0, lalu hapus override ini.
+dependency_overrides:
+  image: 4.10.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+  # Codegen Drift.
+  drift_dev: ^2.31.0
+  build_runner: ^2.14.1
+
+  # Dipakai HANYA test migrasi Fase 8 (test/fase8_e2e_test.dart) untuk
+  # membangun file DB skema v1 mentah sebelum dibuka AppDatabase.
+  # Versi 2.9.4 = yang sudah ter-resolve transitif via drift — BUKAN
+  # upgrade, hanya dijadikan direct dev dep supaya import eksplisit.
+  sqlite3: ^2.9.4
+
+flutter:
+  uses-material-design: true
